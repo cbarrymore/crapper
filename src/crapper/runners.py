@@ -75,7 +75,7 @@ def _remove_file(path: Path) -> None:
         path.unlink()
 
 
-_COVERAGE_DIRS = {"typescript", "rust", "go", "python"}
+_COVERAGE_DIRS = {"typescript", "rust", "go", "python", "csharp"}
 
 
 def _outside_language_dirs(coverage: Path, path: Path) -> bool:
@@ -890,6 +890,55 @@ def _cover_rust(root: Path, files: list[Path]) -> None:
             _warn(f"Rust coverage exited {code} in {module}. Rust coverage will score 0%.")
 
 
+def csharp_solutions(root: Path, files: list[Path]) -> list[Path]:
+    """The nearest .sln or .slnx above each C# file, one per directory."""
+
+    root = root.resolve()
+    found: set[Path] = set()
+    for file in files:
+        if Path(file).suffix != ".cs":
+            continue
+        current = Path(file).resolve().parent
+        while True:
+            # shortcut: takes the first solution by name when a directory has several.
+            solutions = sorted(current.glob("*.sln")) + sorted(current.glob("*.slnx"))
+            if solutions:
+                found.add(solutions[0])
+                break
+            if current == root or current.parent == current:
+                break
+            current = current.parent
+    return sorted(found)
+
+
+def csharp_coverage_command(solution: Path, results: Path) -> list[str]:
+    return [
+        "dotnet",
+        "test",
+        str(solution),
+        "--collect",
+        "XPlat Code Coverage;Format=lcov",
+        "--results-directory",
+        str(results),
+    ]
+
+
+def _cover_csharp(root: Path, files: list[Path]) -> None:
+    solutions = csharp_solutions(root, files)
+    if not solutions:
+        _warn("No .sln or .slnx; skipping C# coverage.")
+        return
+    if shutil.which("dotnet") is None:
+        _warn("dotnet is not installed. C# coverage will score 0%.")
+        return
+    for solution in solutions:
+        results = _coverage_report(root, solution.parent, "csharp").parent
+        _prepare_report(results / "lcov.info")
+        code = run_shell(csharp_coverage_command(solution, results), solution.parent)
+        if code != 0:
+            _warn(f"dotnet test exited {code} for {solution}. Coverage that was recorded is still read.")
+
+
 _COVERERS = {
     "clojure": _cover_clojure_files,
     "java": _cover_java,
@@ -898,12 +947,13 @@ _COVERERS = {
     "python": _cover_python,
     "rust": _cover_rust,
     "swift": _cover_swift,
+    "csharp": _cover_csharp,
 }
 
 
 def _cover_present(root: Path, files: list[Path]) -> None:
     languages = _languages_in(files)
-    for language in ("clojure", "java", "go", "typescript", "python", "rust", "swift"):
+    for language in ("clojure", "java", "go", "typescript", "python", "rust", "swift", "csharp"):
         if language in languages:
             _COVERERS[language](root, files)
 
