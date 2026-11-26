@@ -123,3 +123,21 @@ def test_coverage_runs_once_per_nearest_solution(tmp_path: Path):
     command = csharp_coverage_command(solutions[0], tmp_path / "out")
     assert command[:3] == ["dotnet", "test", str(solutions[0])]
     assert "XPlat Code Coverage;Format=lcov" in command
+
+
+def test_the_solution_that_lists_the_project_and_its_tests_wins(tmp_path: Path):
+    lib = r'Project("{X}") = "Lib", "src\Lib\Lib.csproj", "{Y}"' + "\n"
+    tests = r'Project("{X}") = "Lib.Tests", "test\Lib.Tests\Lib.Tests.csproj", "{Z}"' + "\n"
+    (tmp_path / "A.Client.sln").write_text(lib, encoding="utf-8")
+    (tmp_path / "A.ClientTest.sln").write_text(lib + tests, encoding="utf-8")
+    (tmp_path / "B.Other.slnx").write_text(
+        '<Solution><Project Path="src/Other/Other.csproj" />'
+        '<Project Path="t/O.Tests/O.Tests.csproj" /><Project Path="t/P.Tests/P.Tests.csproj" /></Solution>',
+        encoding="utf-8",
+    )
+    source = tmp_path / "src" / "Lib"
+    source.mkdir(parents=True)
+    (source / "Lib.csproj").write_text("<Project />", encoding="utf-8")
+    assert csharp_solutions(tmp_path, [source / "Calc.cs"]) == [
+        (tmp_path / "A.ClientTest.sln").resolve()
+    ]

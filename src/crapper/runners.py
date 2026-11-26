@@ -7,6 +7,7 @@ tool, or a failed run, scores its functions at 0%.
 from __future__ import annotations
 
 import json
+import re
 import shlex
 import shutil
 import subprocess
@@ -890,8 +891,32 @@ def _cover_rust(root: Path, files: list[Path]) -> None:
             _warn(f"Rust coverage exited {code} in {module}. Rust coverage will score 0%.")
 
 
+def _solution_projects(solution: Path) -> list[str]:
+    """Project names a .sln or .slnx lists, from their quoted `.csproj` paths."""
+
+    try:
+        text = solution.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    return re.findall(r'([^"\\/]+)\.csproj"', text)
+
+
+def _best_solution(solutions: list[Path], project: str | None) -> Path:
+    """The one that lists the file's project, then the one with the most test projects.
+
+    shortcut: a tie goes to the first name; pass --coverage-command when that is wrong.
+    """
+
+    def rank(solution: Path) -> tuple[bool, int]:
+        names = _solution_projects(solution)
+        tests = sum(name.endswith(("Test", "Tests")) for name in names)
+        return (project in names, tests)
+
+    return max(solutions, key=rank)
+
+
 def csharp_solutions(root: Path, files: list[Path]) -> list[Path]:
-    """The nearest .sln or .slnx above each C# file, one per directory."""
+    """The nearest .sln or .slnx above each C# file, one per file."""
 
     root = root.resolve()
     found: set[Path] = set()
@@ -899,11 +924,13 @@ def csharp_solutions(root: Path, files: list[Path]) -> list[Path]:
         if Path(file).suffix != ".cs":
             continue
         current = Path(file).resolve().parent
+        project: str | None = None
         while True:
-            # shortcut: takes the first solution by name when a directory has several.
+            if project is None:
+                project = next((p.stem for p in sorted(current.glob("*.csproj"))), None)
             solutions = sorted(current.glob("*.sln")) + sorted(current.glob("*.slnx"))
             if solutions:
-                found.add(solutions[0])
+                found.add(_best_solution(solutions, project))
                 break
             if current == root or current.parent == current:
                 break
