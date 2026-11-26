@@ -831,6 +831,8 @@ def _read(path: Path) -> str | None:
 def _lcov_paths(root: Path) -> list[Path]:
     paths = list(root.glob("target/coverage/**/lcov.info"))
     paths.extend(root.glob("coverage/**/lcov.info"))
+    # coverlet's collector names its LCOV coverage.info, one per test project.
+    paths.extend(root.glob("target/coverage/csharp/**/coverage.info"))
     return paths
 
 

@@ -33,6 +33,10 @@ _TEST_PATTERNS = ", ".join(
         "*_test.py",
         "conftest.py",
         "*Tests.swift",
+        "*Test.cs",
+        "*Tests.cs",
+        "*.Designer.cs",
+        "*.g.cs",
     ]
 )
 
@@ -45,7 +49,7 @@ and prints a report sorted worst first.
 
 Languages: Clojure (.clj .cljc .cljs .bb), Java (.java), Go (.go),
 TypeScript and JavaScript (.ts .tsx .mts .cts .js .jsx .mjs .cjs),
-Rust (.rs), Python (.py), Swift (.swift).
+Rust (.rs), Python (.py), Swift (.swift), C# (.cs).
 
 Options:
   -h, --help                    Print this help and exit.
@@ -79,6 +83,8 @@ Coverage, when it is produced:
   Python       coverage.py LCOV, via pytest or unittest, per project
   Swift        swift test --enable-code-coverage, then llvm-cov JSON;
                or xcodebuild test and xcrun xccov view --report --json
+  C#           dotnet test with coverlet's XPlat Code Coverage (LCOV),
+               for each nearest .sln or .slnx
 
 uml-viewer joins .metrics/crap.edn on :namespace and :name.
   Clojure      the ns, and the defn name
@@ -88,6 +94,7 @@ uml-viewer joins .metrics/crap.edn on :namespace and :name.
   Rust         crate::module, or crate::module::Type for methods
   Python       dotted module path, or module.Class for methods
   Swift        the module, or Module.Type for methods and properties
+  C#           Namespace.Type, or Namespace.Outer.Inner, and the member name
 """
 
 

@@ -1,6 +1,6 @@
 # crapper
 
-CRAP scores for Clojure, Java, Go, TypeScript, Rust, Python, and Swift. One run detects the language of each source file, applies that language's complexity and coverage rules, and writes the snapshot [uml-viewer](https://github.com/unclebob/uml-viewer) already reads.
+CRAP scores for Clojure, Java, Go, TypeScript, Rust, Python, Swift, and C#. One run detects the language of each source file, applies that language's complexity and coverage rules, and writes the snapshot [uml-viewer](https://github.com/unclebob/uml-viewer) already reads.
 
 The formula is the one from [crap4clj](https://github.com/unclebob/crap4clj), [crap4java](https://github.com/unclebob/crap4java), and [crap4go](https://github.com/unclebob/crap4go):
 
@@ -53,6 +53,7 @@ uml-viewer groups entries by `:namespace` and joins each operation on `:name`. `
 | Rust | `crate::module`, or `crate::module::Type` | the function or method name |
 | Python | the dotted module path, or `module.Class` | the function or method name |
 | Swift | the module, or `Module.Type` | the function, method, initializer, subscript, or property |
+| C# | `Namespace.Type`, or `Namespace.Outer.Inner` | the method, constructor, `~Type`, `operator +`, property, or `this[]` |
 
 Rename or move is a new entry. There is no identity matching across runs.
 
@@ -76,6 +77,8 @@ Entries are top-level functions, methods on classes, structs, enums, actors, ext
 
 The namespace is the module, or `Module.Type` for a member (`Module.Outer.Inner` for a nested type, `Module.Array` for an extension). The module is the SwiftPM target whose path contains the file, otherwise the directory under `Sources/`, otherwise the nearest `.xcworkspace`, or an `.xcodeproj` when that directory has no workspace, otherwise the dotted directory path with `src/` removed. uml-viewer groups on that namespace and joins `:name`. mutator uses the same function list, including each entry's byte span, so a nested closure's mutations belong to the enclosing function.
 
+C# counts `if`, `for`, `foreach`, `while`, `do`, each `catch`, `?:`, each `switch` section (including `default`), each switch-expression arm, `&&`, `||`, `??`, `?.`, and `and` / `or` patterns. Entries are methods, constructors, finalizers, operators, and properties or indexers whose accessors have a body. Auto-properties and bodiless members (abstract, interface, `partial` declarations) are not entries. Lambdas and local functions stay inside the enclosing member. Top-level statements are not scored. `*.Designer.cs`, `*.g.cs`, `obj/`, and test projects (a directory or file ending in `Test` or `Tests`) are skipped. Coverage is coverlet's LCOV, scored the same way as TypeScript: branch records when the member has them, line hits otherwise.
+
 ## Coverage commands
 
 By default a run deletes the previous report for each language it is about to measure and regenerates it:
@@ -88,6 +91,7 @@ By default a run deletes the previous report for each language it is about to me
 | TypeScript | `npm run coverage`, or Vitest `--coverage`, or `npx c8 ... npm test` | `coverage/lcov.info` or `target/coverage/typescript/lcov.info` |
 | Rust | `cargo llvm-cov` or `cargo tarpaulin`, per Cargo package | `target/coverage/rust/lcov.info` |
 | Python | `coverage run` with pytest or unittest, then `coverage lcov` | `target/coverage/python/lcov.info` |
+| C# | `dotnet test <solution> --collect "XPlat Code Coverage;Format=lcov"` for each nearest `.sln` / `.slnx` (test projects need `coverlet.collector`) | `target/coverage/csharp/**/coverage.info` |
 | Swift | `swift test --enable-code-coverage`, then `llvm-cov export` (JSON by default); or `xcodebuild test -enableCodeCoverage YES` and `xcrun xccov view --report --json` | `target/coverage/swift/**/*.json` |
 
 A missing tool or a failed test run scores that language at 0% and still writes the snapshot. Pass `--coverage-command` to replace those defaults with one command of your own. `--no-coverage` is the run that leaves coverage and CRAP as N/A.

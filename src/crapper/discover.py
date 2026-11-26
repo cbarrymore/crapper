@@ -21,6 +21,7 @@ EXTENSIONS = {
     ".rs": "rust",
     ".py": "python",
     ".swift": "swift",
+    ".cs": "csharp",
 }
 
 SKIP_DIRS = {
@@ -44,11 +45,16 @@ SKIP_DIRS = {
     ".build",
     ".swiftpm",
     "DerivedData",
+    "obj",
+    ".vs",
+    ".claude",
+    "TestResults",
 }
 
 TEST_DIRS = {"test", "tests", "spec", "specs", "__tests__"}
 
 GO_TEST_SUFFIX = "_test.go"
+CSHARP_GENERATED_SUFFIXES = (".Designer.cs", ".g.cs", ".g.i.cs", ".generated.cs")
 CLOJURE_TEST_SUFFIXES = ("_test.clj", "_test.cljc", "_test.cljs", "_test.bb")
 JS_TEST_SUFFIXES = (
     ".test.ts",
@@ -73,7 +79,7 @@ JS_TEST_SUFFIXES = (
 def language_of(path: str | Path) -> str | None:
     file_path = Path(path)
     name = file_path.name
-    if name.endswith(".d.ts"):
+    if name.endswith(".d.ts") or name.endswith(CSHARP_GENERATED_SUFFIXES):
         return None
     return EXTENSIONS.get(file_path.suffix)
 
@@ -86,6 +92,16 @@ def _swift_test(file_path: Path) -> bool:
     if file_path.name.endswith("Tests.swift"):
         return True
     return any(part.endswith("Tests") for part in file_path.parts)
+
+
+def _csharp_test(file_path: Path) -> bool:
+    """.NET test projects are named `*.Test`, `*.Tests`, `*.UnitTest`, `*.IntegrationTests`..."""
+
+    if file_path.suffix != ".cs":
+        return False
+    if file_path.stem.endswith(("Test", "Tests")):
+        return True
+    return any(part.endswith(("Test", "Tests")) for part in file_path.parts[:-1])
 
 
 def is_test_file(path: str | Path) -> bool:
@@ -101,7 +117,7 @@ def is_test_file(path: str | Path) -> bool:
         return True
     if name.endswith("_test.py") or (name.startswith("test_") and name.endswith(".py")):
         return True
-    if _swift_test(file_path):
+    if _swift_test(file_path) or _csharp_test(file_path):
         return True
     return any(part in TEST_DIRS for part in file_path.parts)
 
